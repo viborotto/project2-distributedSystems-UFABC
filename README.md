@@ -89,3 +89,8 @@ Existem algumas formas. Você pode serializar o objeto (não recomendo) ou usar 
 
 **2. Tenho a estrutura no servidor e criei as Threads que atendem os Peers. Estou tendo problemas de concorrência ao atualizar a estrutura. Como resolvo isso?**
 Existem diversas formas, como o uso de locks e semáforos, por exemplo.
+
+Exemplos Aula pratica:
+PUT <1234, "blabla"> t = 5
+GET <1234, "blabla"> t = 3
+GET <1234, "blabla"> t = 8
