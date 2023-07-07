@@ -1,0 +1,1 @@
+# definir estrutura da mensagem, tipo de operacao, chave e valor
