@@ -22,6 +22,16 @@ class HashTableKV:
         value = self.store.get(key)
         timestamp = self.timestamps.get(key)
         return value, timestamp
+
+    def search(self, key):
+        return key in self.store
+
+    def update(self, key, new_value, new_timestamp):
+        if key in self.store:
+            self.store[key] = new_value
+            self.timestamps[key] = new_timestamp
+        else:
+            raise KeyError("Key does not exist in KeyValueStore")
 def processarMensagem(client_socket, address, data, key_value_store, leader_ip, leader_port):
     # Implemente aqui a lógica para processar a requisição recebida do cliente
     # Se o servidor não for o líder, encaminhe a requisição para o líder
@@ -38,14 +48,19 @@ def processarMensagem(client_socket, address, data, key_value_store, leader_ip, 
         print("SOU O SERVIDOR LIDER")
         response = "OK"  # Exemplo de resposta para o cliente
         if data.startswith('PUT'):
-            # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
-            # 1.0 SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
-            # 1.1 - INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
             key_value = data[4:]  # Extrair a parte do comando após "PUT "
             key, value = key_value.split('=')
             timestamp = key_value_store.timestamps.get(key, 0) + 1
-            key_value_store.put(key, value, timestamp)
-            # 2 - REPLICAR OS DADOS NOS OUTROS SERVIDORES(K, V, Timestamp)
+            # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
+            if key_value_store.search():
+                # SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
+                print("chave ja existe")
+                key_value_store.update(key, value, timestamp)
+                print("atualizado o valor e timestamp da chave: " + key)
+            else:
+                # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
+                key_value_store.put(key, value, timestamp)
+            # TODO: 2 - REPLICAR OS DADOS NOS OUTROS SERVIDORES(K, V, Timestamp)
                 # Mensagem: REPLICATION key value timestamp
         elif data.startswith('GET'):
             key = data[4:]  # Extrair a parte do comando após "GET "
