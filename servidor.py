@@ -28,15 +28,25 @@ def processarMensagem(client_socket, address, data, key_value_store, leader_ip, 
     # Caso contrário, se o comando for PUT, insira a chave-valor na tabela de hash local com o timestamp atual
     # Se o comando for GET, obtenha o valor e o timestamp associados à chave
 
+    # Caso seja Put e NAO SEJA LIDER
     if data.startswith('PUT') and (leader_ip != address[0] or leader_port != address[1]):
+        # REDIRECIONA A REQUISICAO PARA O LIDER
+        print("NAO SOU O SERVIDOR LIDER")
+        print("REDIRECIONANDO REQUEST PARA O LIDER")
         response = forward_request_to_leader(leader_ip, leader_port, data)
     else:
+        print("SOU O SERVIDOR LIDER")
         response = "OK"  # Exemplo de resposta para o cliente
         if data.startswith('PUT'):
+            # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
+            # 1.0 SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
+            # 1.1 - INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
             key_value = data[4:]  # Extrair a parte do comando após "PUT "
             key, value = key_value.split('=')
             timestamp = key_value_store.timestamps.get(key, 0) + 1
             key_value_store.put(key, value, timestamp)
+            # 2 - REPLICAR OS DADOS NOS OUTROS SERVIDORES(K, V, Timestamp)
+                # Mensagem: REPLICATION key value timestamp
         elif data.startswith('GET'):
             key = data[4:]  # Extrair a parte do comando após "GET "
             value, timestamp = key_value_store.get(key)

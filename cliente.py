@@ -35,14 +35,16 @@ def requisitarServidor(server_ip, server_port, mensagem):
         client_socket.close()
 
 
-defineServidores()
 
 # eleger o lider aleatorio? usar uma flag de lider?
 lider_ip = server_ips[0]
 lider_port = server_ports[0]
 # Executar requisições GET e PUT
 while True:
-    op_kv = input("Defina a operacao e o par key-value(e.g GET key ou PUT key=value): ")
+    op_kv = input("Defina a operacao e o par key-value(e.g INIT ou GET key ou PUT key=value): ")
+    # op_kv = input("Defina a operacao INIT, PUT, ou GET")
+    if op_kv.lower() == 'INIT':
+        defineServidores()
     if op_kv.lower() == 'exit':
         break
     elif op_kv.startswith('GET'):
