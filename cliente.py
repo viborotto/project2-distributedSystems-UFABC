@@ -5,7 +5,7 @@ from mensagem import Mensagem
 server_ips = []
 server_ports = []
 # Inicializar o timestamp do cliente
-timestamp = 0
+timestamp = 2
 
 def defineServidores():
     # for i in range(3):
@@ -41,7 +41,6 @@ def requisitarServidor(server_ip, server_port, mensagem):
         # receber PUT_OK DO SERVIDOR PRINTA:
         # response = f"PUT_OK key: {mensagem.message_key} value {mensagem.message_value} timestamp {mensagem.message_timestamp} realizada no servidor {server_ip}:{server_port}"
         if len(resposta_servidor_serializada) > 0:
-            resposta = pickle.loads(resposta_servidor_serializada)
             if resposta_operacao == 'GET_OK':
                 print(f"GET key: {mensagem.message_key} value: {mensagem.message_value} obtido do servidor {server_ip}:{server_port}, meu timestamp {timestamp} e do servidor {mensagem.message_timestamp}")
                 # print('GET_OK')
@@ -50,6 +49,8 @@ def requisitarServidor(server_ip, server_port, mensagem):
                 # print('NULL')
             elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
                 print('TRY_OTHER_SERVER_OR_LATER')
+            elif resposta_operacao == 'PUT_OK':
+                print(f"PUT_OK key: {mensagem.message_key} value {mensagem.message_value} timestamp {mensagem.message_timestamp} realizada no servidor {server_ip}:{server_port}")
         else:
             print("Empty response received from server")
     except Exception as e:
@@ -89,8 +90,9 @@ while True:
         timestamp += 1
         mensagem = Mensagem("PUT", key_value.split('=')[0], key_value.split('=')[1], timestamp)
         # escolhe aleatoriamente um dos 3 servidores
-        id_servidor_escolhido = random.randint(0, 2)
-        # id_servidor_escolhido = 1
+        # TODO
+        # id_servidor_escolhido = random.randint(0, 2)
+        id_servidor_escolhido = 1
         print("porta servidor escolhido: ", server_ports[id_servidor_escolhido])
         print("ip servidor escolhido: ", server_ips[id_servidor_escolhido])
         # TODO: Na requisição do PUT, envie a key e a value.
