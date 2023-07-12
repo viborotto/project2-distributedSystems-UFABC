@@ -1,17 +1,11 @@
 import socket, os, threading, random, pickle
+from mensagem import Mensagem
 
 # Capturar IPs e portas dos servidores do teclado
 server_ips = []
 server_ports = []
 # Inicializar o timestamp do cliente
 timestamp = 0
-
-class Mensagem:
-    def __init__(self, operacao, message_key, message_value, message_timestamp):
-        self.operacao = operacao
-        self.message_key = message_key
-        self.message_value = message_value
-        self.message_timestamp = message_timestamp
 
 def defineServidores():
     # for i in range(3):
@@ -39,15 +33,23 @@ def requisitarServidor(server_ip, server_port, mensagem):
     try:
         client_socket.connect((str(server_ip), int(server_port)))
         serialized_request = pickle.dumps(mensagem)
-        client_socket.sendall(serialized_request)
+        client_socket.sendall(serialized_request) # Envia mensagem com a operacao desejada para o S
         resposta_servidor_serializada = client_socket.recv(1024) # recebe todas as operacoes
-        print(resposta_servidor_serializada.decode()) # recebe PUT_OK do servidor lider
+        mensagem = pickle.loads(resposta_servidor_serializada)
+        resposta_operacao = mensagem.operacao
         # TODO: PRECISARIA CRIAR UMA THREAD PARA OUVIR O MENU, E OUTRA PARA OUVIR AS RESPOSTAS DO SERVIDOR?
         # receber PUT_OK DO SERVIDOR PRINTA:
         # response = f"PUT_OK key: {key} value {value} timestamp {timestamp} realizada no servidor {server_ip}:{server_port}"
         if len(resposta_servidor_serializada) > 0:
             resposta = pickle.loads(resposta_servidor_serializada)
-            print("Response:", resposta)
+            if resposta_operacao == 'GET_OK':
+                # print(f"GET key: {key} value: {valor devolvido pelo servidor} obtido do servidor {IP}:{porta}, meu timestamp {timestamp_do_cliente} e do servidor {timestamp_do_servidor}”'
+                print('GET_OK')
+            elif resposta_operacao == 'NULL':
+                # print(f"GET key: {key} value: NULL obtido do servidor {IP}:{porta}, meu timestamp {timestamp_do_cliente} e do servidor {timestamp_do_servidor}”'
+                print('NULL')
+            elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
+                print('TRY_OTHER_SERVER_OR_LATER')
         else:
             print("Empty response received from server")
     except Exception as e:
@@ -77,8 +79,9 @@ while True:
         # escolhe aleatoriamente um dos 3 servidores
         id_servidor_escolhido = random.randint(0, 2)
         #TODO: # Substitua 'timestamp1' pelo valor correto do último timestamp conhecido
+        # envie a key e o último timestamp que o cliente tem associado a essa key [?]
         mensagem = Mensagem("GET", key, None, timestamp)
-        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], op_kv)
+        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem)
     elif op_kv.startswith('PUT'):
         # separando operacao de key-value
         key_value = op_kv[4:]
@@ -86,8 +89,8 @@ while True:
         timestamp += 1
         mensagem = Mensagem("PUT", key_value.split('=')[0], key_value.split('=')[1], timestamp)
         # escolhe aleatoriamente um dos 3 servidores
-        # id_servidor_escolhido = random.randint(0, 2)
-        id_servidor_escolhido = 1
+        id_servidor_escolhido = random.randint(0, 2)
+        # id_servidor_escolhido = 1
         print("porta servidor escolhido: ", server_ports[id_servidor_escolhido])
         print("ip servidor escolhido: ", server_ips[id_servidor_escolhido])
         # TODO: Na requisição do PUT, envie a key e a value.

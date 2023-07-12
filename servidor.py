@@ -1,4 +1,5 @@
 import socket, os, random, pickle, threading
+from mensagem import Mensagem
 
 # Capturar IP e porta do servidor
 server_ip = input("Defina o IP do Servidor (default: 127.0.0.1): ") or "127.0.0.1"
@@ -11,13 +12,6 @@ lider_ip = input("Defina o IP do Servidor LIDER (default: 127.0.0.1): ") or "127
 lider_port = int(input("Defina a PORTA do Servidor LIDER (10097, 10098 e 10099): ") or "10098")
 print('leader_ip: ', lider_ip)
 print('lider_port: ', lider_port)
-
-class Mensagem:
-    def __init__(self, operacao, message_key, message_value, message_timestamp):
-        self.operacao = operacao
-        self.message_key = message_key
-        self.message_value = message_value
-        self.message_timestamp = message_timestamp
 
 # tabela de hash local para armazenar os pares chave-valor e os timestamps associados.
 class HashTableKV:
@@ -80,8 +74,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
         print("NAO SOU O SERVIDOR LIDER")
         print("REDIRECIONANDO REQUEST PARA O LIDER")
         # TODO: AJUSTAR ESSE CENARIO
-        print(f"Encaminhando PUT key:{mensagem.mensagem.message_key} value:{mensagem.mensagem.message_key}")
-        response = forward_request_to_leader(leader_ip, leader_port, pickle.dumps(mensagem))
+        print(f"Encaminhando PUT key:{mensagem.message_key} value:{mensagem.message_value}")
+        response = forward_request_to_leader(leader_ip, leader_port, mensagem).decode()
+        print("FORWARD PRINT RESPONSE", response)
     else:
         if mensagem.operacao == 'PUT':
             key = mensagem.message_key
@@ -110,19 +105,45 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 print(response)
         elif mensagem.operacao == 'GET':
             key = mensagem.message_key
-            value, timestamp = key_value_store.get(key)
-            response = f"Value: {value}, Timestamp: {timestamp}"
+            valueS, timestampS = key_value_store.get(key)
+            timestampCliente = mensagem.message_timestamp
+            # 1. Caso nao exista
+            if not key_value_store.search(key):
+                # # todo: o que enviar para o cliente? mensagem = Mensagem("NULL", key, value, timestamp)
+                mensagem_get = Mensagem("NULL", key, 'NULL', 0)
+                response = pickle.dumps(mensagem_get)
+            # 2. Caso exista
+            else:
+                # devolver o value que possui o timestampS o qual timestampS >= timestampX
+                # exemplo se receber um Tx = 2 e tiver o Ts=3 => value = valueS timestampS
+                if timestampS >= timestampCliente:
+                    mensagem.message_value = valueS
+                # todo: o que enviar para o cliente? mensagem = Mensagem("GET_OK", key, valueS, timestampS)
+                #     response = f"GET_OK"
+                    mensagem_get = Mensagem("GET_OK", key, valueS, timestampS)
+                    response = pickle.dumps(mensagem_get)
+                # Nesse caso significa que a chave em S estaria desatualizada:
+                elif timestampS < timestampCliente:
+                    # todo: o que enviar para o cliente? mensagem = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestamp)
+                    # response = f"TRY_OTHER_SERVER_OR_LATER"
+                    mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestamp)
+                    response = pickle.dumps(mensagem_get)
 
     # PRA CADA OPERACAO ENVIA PARA O CLIENTE O RESPONSE
-    client_socket.sendall(response.encode())
+    client_socket.sendall(response)
+    # client_socket.sendall(response.encode())
 
-def forward_request_to_leader(leader_ip, leader_port, data):
+def forward_request_to_leader(leader_ip, leader_port, mensagem):
+    # cria novo socket pra conexao com o lider
     leader_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         leader_socket.connect((leader_ip, leader_port))
-        leader_socket.sendall(data.encode())
-        response = leader_socket.recv(1024).decode()
-        return response
+
+        serialized_request = pickle.dumps(mensagem)
+        leader_socket.sendall(serialized_request)  # envia mensagem PUT para o lider
+        response_forward_request_to_leader = leader_socket.recv(1024)
+        print(response_forward_request_to_leader.decode())
+        return response_forward_request_to_leader
     finally:
         leader_socket.close()
 
