@@ -4,14 +4,10 @@ from mensagem import Mensagem
 # Capturar IP e porta do servidor
 server_ip = input("Defina o IP do Servidor (default: 127.0.0.1): ") or "127.0.0.1"
 server_port = int(input("Defina a PORTA do Servidor(10097, 10098 e 10099): ") or "10097")
-print('server_ip: ', server_ip)
-print('server_port: ', server_port)
 
 # Capturar IP e porta do líder
 lider_ip = input("Defina o IP do Servidor LIDER (default: 127.0.0.1): ") or "127.0.0.1"
 lider_port = int(input("Defina a PORTA do Servidor LIDER (10097, 10098 e 10099): ") or "10098")
-print('leader_ip: ', lider_ip)
-print('lider_port: ', lider_port)
 
 # tabela de hash local para armazenar os pares chave-valor e os timestamps associados.
 class HashTableKV:
@@ -53,20 +49,13 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
         # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
         if key_value_store.search(key):
             # SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
-            print("chave ja existe")
             key_value_store.update(key, value, timestamp)
-            print("atualizado o valor e timestamp da chave: " + value)
-            print(key_value_store.get(key))
-            # response = f"REPLICATION_OK"
             mensagem_put = Mensagem("REPLICATION_OK", key, value, timestamp)
             response = pickle.dumps(mensagem_put)
         else:
             # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
             key_value_store.put(key, value, timestamp)
-            print("Chave foi colocada no Hash? ", key_value_store.search(key))
-            print(key_value_store.get(key))
             # Somente depois do replication enviar REPLICATION_OK para o lider
-            # response = f"REPLICATION_OK"
             mensagem_put = Mensagem("REPLICATION_OK", key, value, timestamp)
             response = pickle.dumps(mensagem_put)
 
@@ -88,23 +77,16 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
             if key_value_store.search(key):
                 # SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
-                print("chave ja existe")
                 key_value_store.update(key, value, timestamp)
-                print("atualizado o valor e timestamp da chave: " + value)
-                print(key_value_store.get(key))
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_ip, client_port)
-                # response = f"PUT_OK {timestamp}"
                 mensagem_put = Mensagem("PUT_OK", key, value, timestamp)
                 response = pickle.dumps(mensagem_put)
             else:
                 # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
                 key_value_store.put(key, value, timestamp)
-                print("Chave foi colocada no Hash? ", key_value_store.search(key))
-                print(key_value_store.get(key))
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_ip, client_port)
                 # Mensagem: REPLICATION key value timestamp
                 # Somente depois do replication enviar PUT_OK para o cliente
-                # response = f"PUT_OK {timestamp}"
                 mensagem_put = Mensagem("PUT_OK", key, value, timestamp)
                 response = pickle.dumps(mensagem_put)
         elif mensagem.operacao == 'GET':
@@ -168,9 +150,9 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem, client_ip, cli
         mensagem = pickle.loads(response_rep)
         resposta_operacao = mensagem.operacao # OPERACAO REPLICATION_OK
         print(f"{resposta_operacao} from {server_ip_rep}:{server_port_rep}")
-        if mensagem.operacao == 'REPLICATION_OK':
+        # if mensagem.operacao == 'REPLICATION_OK':
             # todo: ts tem que ser do servidor, conferir se ta certo
-            print(f"Enviando PUT_OK ao Cliente {client_ip}:{client_port} da key:{mensagem.message_key} ts:{mensagem.message_timestamp}")
+            
     finally:
         replication_socket.close()
 
@@ -195,6 +177,7 @@ def replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_i
     for replication_thread in replication_threads:
         replication_thread.join()
 
+    print(f"Enviando PUT_OK ao Cliente {client_ip}:{client_port} da key:{mensagem.message_key} ts:{mensagem.message_timestamp}")
 
 def handle_client(client_socket, address, key_value_store, leader_ip, leader_port, client_ip, client_port):
     while True:
@@ -204,10 +187,9 @@ def handle_client(client_socket, address, key_value_store, leader_ip, leader_por
             break
 
         mensagem = pickle.loads(data)
-        print(f"Received data: {mensagem.message_key} = {mensagem.message_value} from {address[0]}:{address[1]}")
 
         processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port)
-    print(f"Connection closed by {address[0]}:{address[1]}")
+    # print(f"Connection closed by {address[0]}:{address[1]}")
     client_socket.close()
 
 def iniciarServidor(ip, port, leader_ip, leader_port):
@@ -215,12 +197,10 @@ def iniciarServidor(ip, port, leader_ip, leader_port):
     server_socket.bind((ip, port))
     server_socket.listen(5)
 
-    print(f"Server listening on {ip}:{port}")
     key_value_store = HashTableKV()
 
     while True:
         client_socket, address = server_socket.accept()
-        print(f"Accepted connection from {address[0]}:{address[1]}")
         client_ip = address[0]
         client_port = address[1]
         # Iniciar uma nova thread para tratar a conexão do cliente
