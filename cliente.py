@@ -39,15 +39,15 @@ def requisitarServidor(server_ip, server_port, mensagem):
         resposta_operacao = mensagem.operacao
         # TODO: PRECISARIA CRIAR UMA THREAD PARA OUVIR O MENU, E OUTRA PARA OUVIR AS RESPOSTAS DO SERVIDOR?
         # receber PUT_OK DO SERVIDOR PRINTA:
-        # response = f"PUT_OK key: {key} value {value} timestamp {timestamp} realizada no servidor {server_ip}:{server_port}"
+        # response = f"PUT_OK key: {mensagem.message_key} value {mensagem.message_value} timestamp {mensagem.message_timestamp} realizada no servidor {server_ip}:{server_port}"
         if len(resposta_servidor_serializada) > 0:
             resposta = pickle.loads(resposta_servidor_serializada)
             if resposta_operacao == 'GET_OK':
-                # print(f"GET key: {key} value: {valor devolvido pelo servidor} obtido do servidor {IP}:{porta}, meu timestamp {timestamp_do_cliente} e do servidor {timestamp_do_servidor}”'
-                print('GET_OK')
+                print(f"GET key: {mensagem.message_key} value: {mensagem.message_value} obtido do servidor {server_ip}:{server_port}, meu timestamp {timestamp} e do servidor {mensagem.message_timestamp}")
+                # print('GET_OK')
             elif resposta_operacao == 'NULL':
-                # print(f"GET key: {key} value: NULL obtido do servidor {IP}:{porta}, meu timestamp {timestamp_do_cliente} e do servidor {timestamp_do_servidor}”'
-                print('NULL')
+                print(f"GET key: {mensagem.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, meu timestamp {timestamp} e do servidor {mensagem.message_timestamp}")
+                # print('NULL')
             elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
                 print('TRY_OTHER_SERVER_OR_LATER')
         else:

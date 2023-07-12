@@ -37,7 +37,7 @@ class HashTableKV:
             self.timestamps[key] = new_timestamp
         else:
             raise KeyError("Key does not exist in KeyValueStore")
-def processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port):
+def processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port):
     # Implemente aqui a lógica para processar a requisição recebida do cliente
     # Se o servidor não for o líder, encaminhe a requisição para o líder
     # Caso contrário, se o comando for PUT, insira a chave-valor na tabela de hash local com o timestamp atual
@@ -113,6 +113,7 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 print(response)
         elif mensagem.operacao == 'GET':
             key = mensagem.message_key
+            value = mensagem.message_value
             valueS, timestampS = key_value_store.get(key)
             timestampCliente = mensagem.message_timestamp
             # 1. Caso nao exista
@@ -120,6 +121,7 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 # # todo: o que enviar para o cliente? mensagem = Mensagem("NULL", key, value, timestamp)
                 mensagem_get = Mensagem("NULL", key, 'NULL', 0)
                 response = pickle.dumps(mensagem_get)
+                print(f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
             # 2. Caso exista
             else:
                 # devolver o value que possui o timestampS o qual timestampS >= timestampX
@@ -130,12 +132,16 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 #     response = f"GET_OK"
                     mensagem_get = Mensagem("GET_OK", key, valueS, timestampS)
                     response = pickle.dumps(mensagem_get)
+                    print(
+                        f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {valueS}")
                 # Nesse caso significa que a chave em S estaria desatualizada:
                 elif timestampS < timestampCliente:
                     # todo: o que enviar para o cliente? mensagem = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestamp)
                     # response = f"TRY_OTHER_SERVER_OR_LATER"
-                    mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestamp)
+                    mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestampCliente)
                     response = pickle.dumps(mensagem_get)
+                    print(
+                        f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {value}")
 
     # PRA CADA OPERACAO ENVIA PARA O CLIENTE O RESPONSE
     client_socket.sendall(response)
@@ -204,7 +210,7 @@ def replicate_to_servers(key, value, timestamp, leader_ip, leader_port):
         replication_thread.join()
 
 
-def handle_client(client_socket, address, key_value_store, leader_ip, leader_port):
+def handle_client(client_socket, address, key_value_store, leader_ip, leader_port, client_ip, client_port):
     while True:
         data = client_socket.recv(1024)
 
@@ -213,7 +219,7 @@ def handle_client(client_socket, address, key_value_store, leader_ip, leader_por
 
         mensagem = pickle.loads(data)
         print(f"Received data: {mensagem.message_key} = {mensagem.message_value} from {address[0]}:{address[1]}")
-        processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port)
+        processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port)
     print(f"Connection closed by {address[0]}:{address[1]}")
     client_socket.close()
 
@@ -228,10 +234,11 @@ def iniciarServidor(ip, port, leader_ip, leader_port):
     while True:
         client_socket, address = server_socket.accept()
         print(f"Accepted connection from {address[0]}:{address[1]}")
-
+        client_ip = address[0]
+        client_port = address[1]
         # Iniciar uma nova thread para tratar a conexão do cliente
         client_thread = threading.Thread(target=handle_client,
-                                         args=(client_socket, address, key_value_store, lider_ip, lider_port))
+                                         args=(client_socket, address, key_value_store, lider_ip, lider_port, client_ip, client_port))
         client_thread.start()
 
 
