@@ -57,7 +57,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             key_value_store.update(key, value, timestamp)
             print("atualizado o valor e timestamp da chave: " + value)
             print(key_value_store.get(key))
-            response = f"REPLICATION_OK"
+            # response = f"REPLICATION_OK"
+            mensagem_put = Mensagem("REPLICATION_OK", key, value, timestamp)
+            response = pickle.dumps(mensagem_put)
             print(response)
         else:
             # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
@@ -65,7 +67,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             print("Chave foi colocada no Hash? ", key_value_store.search(key))
             print(key_value_store.get(key))
             # Somente depois do replication enviar REPLICATION_OK para o lider
-            response = f"REPLICATION_OK"
+            # response = f"REPLICATION_OK"
+            mensagem_put = Mensagem("REPLICATION_OK", key, value, timestamp)
+            response = pickle.dumps(mensagem_put)
             print(response)
 
     # Caso seja Put e NAO SEJA LIDER
@@ -92,7 +96,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 print("atualizado o valor e timestamp da chave: " + value)
                 print(key_value_store.get(key))
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port)
-                response = f"PUT_OK {timestamp}"
+                # response = f"PUT_OK {timestamp}"
+                mensagem_put = Mensagem("PUT_OK", key, value, timestamp)
+                response = pickle.dumps(mensagem_put)
             else:
                 # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
                 key_value_store.put(key, value, timestamp)
@@ -101,7 +107,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port)
                 # Mensagem: REPLICATION key value timestamp
                 # Somente depois do replication enviar PUT_OK para o cliente
-                response = f"PUT_OK {timestamp}"
+                # response = f"PUT_OK {timestamp}"
+                mensagem_put = Mensagem("PUT_OK", key, value, timestamp)
+                response = pickle.dumps(mensagem_put)
                 print(response)
         elif mensagem.operacao == 'GET':
             key = mensagem.message_key
@@ -153,9 +161,11 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem):
         replication_socket.connect((server_ip_rep, server_port_rep))
         # VERIFICAR O SEND E O RECV
         serialized_request = pickle.dumps(mensagem)
-        replication_socket.sendall(serialized_request) # envia mensagem REPLICATION
-        response_rep = replication_socket.recv(1024) # recebe REPLICATION_OK
-        print(response_rep.decode())
+        replication_socket.sendall(serialized_request) # envia mensagem com REPLICATION
+        response_rep = replication_socket.recv(1024) # recebe Mensagens dos servidores
+        mensagem = pickle.loads(response_rep)
+        resposta_operacao = mensagem.operacao # OPERACAO REPLICATION_OK
+        print(resposta_operacao)
         print(f"Replication response from {server_ip_rep}:{server_port_rep}")
         # if len(response_rep) > 0:
         #     resposta = pickle.loads(response_rep)
