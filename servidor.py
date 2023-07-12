@@ -52,41 +52,50 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
     if mensagem.operacao == "REPLICATION":
         key = mensagem.message_key
         value = mensagem.message_value
+        # pega o timestamp da mensagem recebida do lider e atualizar ou insere
+        timestamp = mensagem.message_timestamp
+        replication_from_lider = f"REPLICATION key:{key} value:{value} ts:{timestamp}."
+        print(replication_from_lider)
         # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
         if key_value_store.search(key):
             # SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
             print("chave ja existe")
-            key_value_store.update(key, value, mensagem + 1)
+            key_value_store.update(key, value, timestamp)
             print("atualizado o valor e timestamp da chave: " + value)
             print(key_value_store.get(key))
-            response = f"PUT_OK {timestamp}"
+            response = f"REPLICATION_OK"
+            print(response)
         else:
             # INSERE KEY E VALUE EM UMA TABELA DE HASHLOCAL
             key_value_store.put(key, value, timestamp)
             print("Chave foi colocada no Hash? ", key_value_store.search(key))
             print(key_value_store.get(key))
-            # Somente depois do replication enviar PUT_OK para o cliente
-            response = f"PUT_OK {timestamp}"
+            # Somente depois do replication enviar REPLICATION_OK para o lider
+            response = f"REPLICATION_OK"
             print(response)
+
     # Caso seja Put e NAO SEJA LIDER
     if mensagem.operacao == 'PUT' and (server_ip != lider_ip or lider_port != server_port):
         # REDIRECIONA A REQUISICAO PARA O LIDER
         print("NAO SOU O SERVIDOR LIDER")
         print("REDIRECIONANDO REQUEST PARA O LIDER")
+        # TODO: AJUSTAR ESSE CENARIO
+        print(f"Encaminhando PUT key:{mensagem.mensagem.message_key} value:{mensagem.mensagem.message_key}")
         response = forward_request_to_leader(leader_ip, leader_port, pickle.dumps(mensagem))
     else:
         if mensagem.operacao == 'PUT':
             key = mensagem.message_key
             value = mensagem.message_value
             timestamp = key_value_store.timestamps.get(key, 0) + 1
+            # TODO: COMO PEGAR AS INFORMACOES DO CLIENTE PARA O PRINT?
+            # print(f"Cliente {IP}:{porta} PUT key:{mensagem.message_key} value:{mensagem.message_value}")
             # O VERIFICAR SE A KEY JA EXISTE NO HASHTABLE
             if key_value_store.search(key):
                 # SE EXISTIR: ATUALIZA O VALOR E TIMESTAMP
                 print("chave ja existe")
-                key_value_store.update(key, value, timestamp+1)
+                key_value_store.update(key, value, timestamp)
                 print("atualizado o valor e timestamp da chave: " + value)
                 print(key_value_store.get(key))
-                # TODO: REPLICAR VALORES E TIMESTAMP ATUALIZADO NOS OUTROS SERVIDORES
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port)
                 response = f"PUT_OK {timestamp}"
             else:
@@ -94,7 +103,6 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 key_value_store.put(key, value, timestamp)
                 print("Chave foi colocada no Hash? ", key_value_store.search(key))
                 print(key_value_store.get(key))
-                # TODO: 2 - REPLICAR OS DADOS NOS OUTROS SERVIDORES(K, V, Timestamp)
                 replicate_to_servers(key, value, timestamp, leader_ip, leader_port)
                 # Mensagem: REPLICATION key value timestamp
                 # Somente depois do replication enviar PUT_OK para o cliente
@@ -105,6 +113,7 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             value, timestamp = key_value_store.get(key)
             response = f"Value: {value}, Timestamp: {timestamp}"
 
+    # PRA CADA OPERACAO ENVIA PARA O CLIENTE O RESPONSE
     client_socket.sendall(response.encode())
 
 def forward_request_to_leader(leader_ip, leader_port, data):
@@ -123,8 +132,9 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem):
         replication_socket.connect((server_ip_rep, server_port_rep))
         # VERIFICAR O SEND E O RECV
         serialized_request = pickle.dumps(mensagem)
-        replication_socket.sendall(serialized_request)
-        response_rep = replication_socket.recv(1024)
+        replication_socket.sendall(serialized_request) # envia mensagem REPLICATION
+        response_rep = replication_socket.recv(1024) # recebe REPLICATION_OK
+        print(response_rep.decode())
         print(f"Replication response from {server_ip_rep}:{server_port_rep}")
         # if len(response_rep) > 0:
         #     resposta = pickle.loads(response_rep)
@@ -137,24 +147,27 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem):
 def replicate_to_servers(key, value, timestamp, leader_ip, leader_port):
     servers = [
         ("127.0.0.1", 10097),  # Endereço do servidor 1
-        ("127.0.0.1", 10099)   # Endereço do servidor 3
+        ("127.0.0.1", 10098),  # Endereço do servidor 2
+        ("127.0.0.1", 10099)  # Endereço do servidor 3
     ]
-
+    print(type(leader_ip))
+    print(type(leader_port))
+    servers.remove((leader_ip, leader_port))
 
     replication_data = f"REPLICATION {key}={value} {timestamp}"
     mensagem = Mensagem("REPLICATION", key, value, timestamp)
 
     print(replication_data)
-    print(type(replication_data))
 
     replication_threads = []
     for server_ip_rep, server_port_rep in servers:
         if server_ip_rep != leader_ip or server_port_rep != leader_port:
-            print("VERIFICA SE O IP DO SERVIDOR A SER REPLICADO É DIFERENTE DO LIDER")
             replication_thread = threading.Thread(target=replicate_to_server,
                                                   args=(server_ip_rep, server_port_rep, mensagem))
             replication_thread.start()
             replication_threads.append(replication_thread)
+    # TODO: quando o lider receber REPLICATION_OK printar:
+    # put_ok_cliente = f"Enviando PUT_OK ao Cliente {IP}:{porta} da key:{key} ts:[timestamp_do_servidor]"
 
     for replication_thread in replication_threads:
         replication_thread.join()

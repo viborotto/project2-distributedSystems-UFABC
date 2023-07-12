@@ -38,10 +38,13 @@ def requisitarServidor(server_ip, server_port, mensagem):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client_socket.connect((str(server_ip), int(server_port)))
-        print("mensagem: ", mensagem)
         serialized_request = pickle.dumps(mensagem)
         client_socket.sendall(serialized_request)
-        resposta_servidor_serializada = client_socket.recv(1024)
+        resposta_servidor_serializada = client_socket.recv(1024) # recebe todas as operacoes
+        print(resposta_servidor_serializada.decode()) # recebe PUT_OK do servidor lider
+        # TODO: PRECISARIA CRIAR UMA THREAD PARA OUVIR O MENU, E OUTRA PARA OUVIR AS RESPOSTAS DO SERVIDOR?
+        # receber PUT_OK DO SERVIDOR PRINTA:
+        # response = f"PUT_OK key: {key} value {value} timestamp {timestamp} realizada no servidor {server_ip}:{server_port}"
         if len(resposta_servidor_serializada) > 0:
             resposta = pickle.loads(resposta_servidor_serializada)
             print("Response:", resposta)
@@ -86,9 +89,7 @@ while True:
         # id_servidor_escolhido = random.randint(0, 2)
         id_servidor_escolhido = 1
         print("porta servidor escolhido: ", server_ports[id_servidor_escolhido])
-        print(type(server_ports[id_servidor_escolhido]))
         print("ip servidor escolhido: ", server_ips[id_servidor_escolhido])
-        print(type(server_ips[id_servidor_escolhido]))
         # TODO: Na requisição do PUT, envie a key e a value.
         requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem)
 
