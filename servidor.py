@@ -3,7 +3,7 @@ from mensagem import Mensagem
 
 # Capturar IP e porta do servidor
 server_ip = input("Defina o IP do Servidor (default: 127.0.0.1): ") or "127.0.0.1"
-server_port = int(input("Defina a PORTA do Servidor(10097, 10098 e 10099): ") or "10097")
+server_port = int(input("Defina a PORTA do Servidor(10097, 10098 e 10099): "))
 
 # Capturar IP e porta do líder
 lider_ip = input("Defina o IP do Servidor LIDER (default: 127.0.0.1): ") or "127.0.0.1"
@@ -62,12 +62,11 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
     # Caso seja Put e NAO SEJA LIDER
     if mensagem.operacao == 'PUT' and (server_ip != lider_ip or lider_port != server_port):
         # REDIRECIONA A REQUISICAO PARA O LIDER
-        print("NAO SOU O SERVIDOR LIDER")
-        print("REDIRECIONANDO REQUEST PARA O LIDER")
-        # TODO: AJUSTAR ESSE CENARIO
+        # TODO: AJUSTAR ESSE CENARIO, O QUE ENVIARIA PARA O SERVIDOR COMO RESPONSE? ACHO QUE NAO ENVIA NADA SÓ RECEBE
         print(f"Encaminhando PUT key:{mensagem.message_key} value:{mensagem.message_value}")
-        response = forward_request_to_leader(leader_ip, leader_port, mensagem).decode()
-        print("FORWARD PRINT RESPONSE", response)
+        response_forward_request_to_leader = enviar_put_lider(leader_ip, leader_port, mensagem)
+        response = enviar_put_lider(leader_ip, leader_port, mensagem)
+        print("enviar_put_lider PRINT RESPONSE")
     else:
         if mensagem.operacao == 'PUT':
             key = mensagem.message_key
@@ -96,7 +95,7 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             timestampCliente = mensagem.message_timestamp
             # 1. Caso nao exista
             if not key_value_store.search(key):
-                # # todo: o que enviar para o cliente? mensagem = Mensagem("NULL", key, value, timestamp)
+                # todo: o que enviar para o cliente? mensagem = Mensagem("NULL", key, value, timestamp)
                 mensagem_get = Mensagem("NULL", key, 'NULL', 0)
                 response = pickle.dumps(mensagem_get)
                 print(f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
@@ -115,7 +114,6 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 # Nesse caso significa que a chave em S estaria desatualizada:
                 elif timestampS < timestampCliente:
                     # todo: o que enviar para o cliente? mensagem = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestamp)
-                    # response = f"TRY_OTHER_SERVER_OR_LATER"
                     mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestampCliente)
                     response = pickle.dumps(mensagem_get)
                     print(
@@ -123,9 +121,8 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
 
     # PRA CADA OPERACAO ENVIA PARA O CLIENTE O RESPONSE
     client_socket.sendall(response)
-    # client_socket.sendall(response.encode())
 
-def forward_request_to_leader(leader_ip, leader_port, mensagem):
+def enviar_put_lider(leader_ip, leader_port, mensagem):
     # cria novo socket pra conexao com o lider
     leader_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -133,9 +130,11 @@ def forward_request_to_leader(leader_ip, leader_port, mensagem):
 
         serialized_request = pickle.dumps(mensagem)
         leader_socket.sendall(serialized_request)  # envia mensagem PUT para o lider
-        response_forward_request_to_leader = leader_socket.recv(1024)
-        print(response_forward_request_to_leader.decode())
-        return response_forward_request_to_leader
+        response_enviar_put_lider = leader_socket.recv(1024)
+        mensagem = pickle.loads(response_enviar_put_lider)
+        resposta_operacao = mensagem.operacao
+        print(resposta_operacao)
+        return response_enviar_put_lider
     finally:
         leader_socket.close()
 
@@ -210,4 +209,3 @@ def iniciarServidor(ip, port, leader_ip, leader_port):
 
 
 iniciarServidor(server_ip, server_port, lider_ip, lider_port)
-# todo: ervidor para processar corretamente as requisições PUT e retornar a mensagem PUT_OK com o timestamp1, de acordo com o formato esperado pelo cliente.

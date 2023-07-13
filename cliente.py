@@ -83,6 +83,7 @@ while True:
         timestamp += 1
         mensagem = Mensagem("PUT", key_value.split('=')[0], key_value.split('=')[1], timestamp)
         # escolhe aleatoriamente um dos 3 servidores
-        id_servidor_escolhido = random.randint(0, 2)
+        # id_servidor_escolhido = random.randint(0, 2)
+        id_servidor_escolhido = 0
         requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem)
         
