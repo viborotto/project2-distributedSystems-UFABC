@@ -12,22 +12,31 @@ class HashTableCliente:
         self.store = {}
         self.timestamps = {}
 
-    def put(self, key, value, timestamp):
-        self.store[key] = value
-        self.timestamps[key] = timestamp
+    def put(self, key_cliente, value_cliente, timestamp_cliente):
+        # Verifica se a chave já existe na tabela
+        if self.search(key_cliente):
+            # Atualiza o valor e o timestamp associados à chave
+            print("atualizando chave")
+            self.store[key_cliente] = value_cliente
+            self.timestamps[key_cliente] = timestamp_cliente
+        else:
+            # Insere a nova chave na tabela
+            print("inserindo chave")
+            self.store[key_cliente] = value_cliente
+            self.timestamps[key_cliente] = timestamp_cliente
 
-    def get(self, key):
-        value = self.store.get(key)
-        timestamp = self.timestamps.get(key)
-        return value, timestamp
+    def get(self, key_cliente):
+        value_cliente = self.store.get(key_cliente)
+        timestamp_cliente = self.timestamps.get(key_cliente)
+        return value_cliente, timestamp_cliente
 
-    def search(self, key):
-        return key in self.store
+    def search(self, key_cliente):
+        return key_cliente in self.store
 
-    def update(self, key, new_value, new_timestamp):
+    def update(self, key_cliente, new_value, new_timestamp):
         if key in self.store:
-            self.store[key] = new_value
-            self.timestamps[key] = new_timestamp
+            self.store[key_cliente] = new_value
+            self.timestamps[key_cliente] = new_timestamp
         else:
             raise KeyError("Key does not exist in KeyValueStore")
 
@@ -50,8 +59,9 @@ def defineServidores():
         # server_ips.append(server_ip)
         # server_ports.append(int(server_port))
 
+
 # estabelecer a conexao com um servidor, enviar a requisicao e receber a resposta
-def requisitarServidor(server_ip, server_port, mensagem):
+def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
     # TCP
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -61,13 +71,34 @@ def requisitarServidor(server_ip, server_port, mensagem):
         resposta_servidor_serializada = client_socket.recv(1024) # recebe todas as operacoes
         mensagem = pickle.loads(resposta_servidor_serializada)
         resposta_operacao = mensagem.operacao
-        # TODO: ARMAZENAR A RESPOSTA DO SERVIDOR NA HASH OU ATUALIZAR A KEY
+        key = mensagem.message_key
+        value = mensagem.message_value
+        valueCliente, timestampCliente  = key_value_store_cliente.get(key)
         if len(resposta_servidor_serializada) > 0:
             if resposta_operacao == 'GET_OK':
-                print(f"GET key: {mensagem.message_key} value: {mensagem.message_value} obtido do servidor {server_ip}:{server_port}, meu timestamp {timestamp} e do servidor {mensagem.message_timestamp}")
+                #caso ja exista na tabela atualizar value e ts
+                print("GET_OK")
+                print(key_value_store_cliente.search(key))
+                # TODO: nao ta entrando nessa primeira condicao
+                if key_value_store_cliente.search(key):
+                    print("TEM NA TABELA CHAVE K")
+                    key_value_store_cliente.update(key, value, timestamp)
+                elif not key_value_store_cliente.search(key):
+                    print("NAO TEM NA TABELA CHAVE K")
+                    key_value_store_cliente.put(key, value, mensagem.message_timestamp)
+                    print(key_value_store_cliente.get(key))
+                print(f"GET key: {mensagem.message_key} value: {mensagem.message_value} obtido do servidor {server_ip}:{server_port}, meu timestamp {timestampCliente} e do servidor {mensagem.message_timestamp}")
             elif resposta_operacao == 'NULL':
+                print("GET_NULL")
                 print(f"GET key: {mensagem.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, meu timestamp {timestamp} e do servidor {mensagem.message_timestamp}")
             elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
+                ## Aqui a chave ja seria conhecida pelo cliente mas nao tem no servidor um valor atualizado
+                # portanto colocaria no cliente com o valor ja conhecido
+                # caso ja exista na tabela atualizar value e ts
+                if key_value_store_cliente.search(key):
+                    key_value_store_cliente.update(key, value, timestamp)
+                elif not key_value_store_cliente.search(key):
+                    key_value_store_cliente.put(key, value, timestamp)
                 print('TRY_OTHER_SERVER_OR_LATER')
             elif resposta_operacao == 'PUT_OK':
                 print(f"PUT_OK key: {mensagem.message_key} value {mensagem.message_value} timestamp {mensagem.message_timestamp} realizada no servidor {server_ip}:{server_port}")
@@ -86,7 +117,7 @@ lider_port = ''
 # Executar requisições GET e PUT
 while True:
     key_value_store_cliente = HashTableCliente()
-    op_kv = input("Defina a operacao e o par key-value(e.g INIT ou GET key ou PUT key=value): ")
+    op_kv = input("Defina a operacao e o par key-value(e.g INIT | GET key | PUT key=value): ")
     if op_kv == 'INIT':
         defineServidores()
         lider_ip = server_ips[0]
@@ -105,8 +136,9 @@ while True:
             mensagem = Mensagem("GET", key, valueC, timestampC)
         elif not key_value_store_cliente.search(key):
             # TODO: precisa inserir no cliente se nao existe na hashtable?
+            ## nao pois nao faz sentido colocar na tabela uma chave com o valor desconhecido e timestamp 0
             mensagem = Mensagem("GET", key, None, 0)
-        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem)
+        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem, key_value_store_cliente)
     elif op_kv.startswith('PUT'):
         # separando operacao de key-value
         key_value = op_kv[4:]
@@ -115,6 +147,5 @@ while True:
         mensagem = Mensagem("PUT", key_value.split('=')[0], key_value.split('=')[1], timestamp)
         # escolhe aleatoriamente um dos 3 servidores
         id_servidor_escolhido = random.randint(0, 2)
-        # id_servidor_escolhido = 0
-        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem)
+        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem, key_value_store_cliente)
         

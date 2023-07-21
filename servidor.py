@@ -1,4 +1,4 @@
-import socket, os, random, pickle, threading
+import socket, pickle, threading
 from mensagem import Mensagem
 
 # Capturar IP e porta do servidor
@@ -62,7 +62,6 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
     # Caso seja Put e NAO SEJA LIDER
     if mensagem.operacao == 'PUT' and (server_ip != lider_ip or lider_port != server_port):
         # REDIRECIONA A REQUISICAO PARA O LIDER
-        # TODO: AJUSTAR ESSE CENARIO, O QUE ENVIARIA PARA O SERVIDOR COMO RESPONSE? ACHO QUE NAO ENVIA NADA SÓ RECEBE
         print(f"Encaminhando PUT key:{mensagem.message_key} value:{mensagem.message_value}")
         response_forward_request_to_leader = enviar_put_lider(leader_ip, leader_port, mensagem)
         response = enviar_put_lider(leader_ip, leader_port, mensagem)
@@ -95,9 +94,7 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             timestampCliente = mensagem.message_timestamp
             # 1. Caso nao exista no servidor
             if not key_value_store.search(key):
-                # todo: o que enviar para o cliente? mensagem = Mensagem("NULL", key, value, timestamp)
-                # todo: devolve o valor nulo ou o valor que recebeu do cliente para value e timestamp?
-                mensagem_get = Mensagem("NULL", key, 'NULL', 0)
+                mensagem_get = Mensagem("NULL", key, 'NULL', timestampS)
                 response = pickle.dumps(mensagem_get)
                 print(f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
             # 2. Caso exista
@@ -113,7 +110,6 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                         f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {valueS}")
                 # Nesse caso significa que a chave em S estaria desatualizada:
                 elif timestampS < timestampCliente:
-                    # todo: devolve o valor do value do cliente  timestamp do cliente?
                     mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestampCliente)
                     response = pickle.dumps(mensagem_get)
                     print(
