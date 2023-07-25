@@ -94,13 +94,15 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
             timestampCliente = mensagem.message_timestamp
             # 1. Caso nao exista no servidor
             if not key_value_store.search(key):
-                mensagem_get = Mensagem("NULL", key, 'NULL', timestampS)
+                mensagem_get = Mensagem("NULL", key, None, 0)
                 response = pickle.dumps(mensagem_get)
                 print(f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
             # 2. Caso exista
             else:
                 # devolver o value que possui o timestampS o qual timestampS >= timestampX
                 # exemplo se receber um Tx = 2 e tiver o Ts=3 => value = valueS timestampS
+                if timestampCliente == None:
+                    timestampCliente = 0
                 if timestampS >= timestampCliente:
                     mensagem.message_value = valueS
                     # atualiza o valor e timestamp com o valor disponivel no servidor
