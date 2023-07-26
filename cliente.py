@@ -1,18 +1,10 @@
-import socket, os, threading, random, pickle
+import socket, random, pickle
 from mensagem import Mensagem
-
-# Capturar IPs e portas dos servidores do teclado
-server_ips = []
-server_ports = []
-
 
 class HashTableCliente:
     def __init__(self):
         self.store = dict()
         self.timestamps = {}
-
-    def getStore(self):
-        return self.store
 
     def put(self, key_cliente, value_cliente, timestamp_cliente):
         self.store[key_cliente] = value_cliente
@@ -71,7 +63,6 @@ def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente
         key_servidor = mensagem_servidor.message_key
         value_servidor = mensagem_servidor.message_value
         timestamp_servidor = mensagem_servidor.message_timestamp
-        valueCliente, timestampCliente  = key_value_store_cliente.get(key_servidor)
         if len(resposta_servidor_serializada) > 0:
             # Condicoes de resposta do
             if resposta_operacao == 'GET_OK':
@@ -113,12 +104,14 @@ def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente
             print("Empty response received from server")
     except Exception as e:
         print("Error communicating with server:", str(e))
-
-
     finally:
         client_socket.close()
 
 
+# Capturar IPs e portas dos servidores do teclado
+server_ips = []
+server_ports = []
+# Inicializando variaveis lider
 lider_ip = ''
 lider_port = ''
 # Inicializando estrutura para armazenar informacoes no Cliente
@@ -154,10 +147,14 @@ while True:
         key_value = op_kv[4:]
         key = key_value.split('=')[0]
         value = key_value.split('=')[1]
-        # Atualizar o timestamp do cliente
-        if key in key_value_store_cliente.store:
-            timestamp = key_value_store_cliente.getTimestampCliente(key) + 1
+        # caso o put seja de uma chave que ja existe pegamos as informacoes mais recentes no cliente
+        ## e enviamos para o servidor
+        if key_value_store_cliente.search(key):
+            #todo: precisa ter esse + 1? nao deveria enviar o timestamp que tem na tabela do cliente?
+            # timestamp = key_value_store_cliente.getTimestampCliente(key) + 1
+            timestamp = key_value_store_cliente.getTimestampCliente(key)
             key_value_store_cliente.update(key, value, timestamp)
+        # se nao tiver ainda a chave inicializa ela local no cliente
         else:
             key_value_store_cliente.put(key, value, timestamp)
         mensagem = Mensagem("PUT", key, value, timestamp)

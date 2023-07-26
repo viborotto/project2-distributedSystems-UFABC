@@ -63,9 +63,9 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
     if mensagem.operacao == 'PUT' and (server_ip != lider_ip or lider_port != server_port):
         # REDIRECIONA A REQUISICAO PARA O LIDER
         print(f"Encaminhando PUT key:{mensagem.message_key} value:{mensagem.message_value}")
-        response_forward_request_to_leader = enviar_put_lider(leader_ip, leader_port, mensagem)
         response = enviar_put_lider(leader_ip, leader_port, mensagem)
     else:
+        # Aqui vao ter 2 casos PUT no cenario de encaminhamento e no cenario de ser realizado diretamente no servidor
         if mensagem.operacao == 'PUT':
             key = mensagem.message_key
             value = mensagem.message_value
@@ -143,7 +143,6 @@ def enviar_put_lider(leader_ip, leader_port, mensagem):
         response_enviar_put_lider = leader_socket.recv(1024)
         mensagem = pickle.loads(response_enviar_put_lider)
         resposta_operacao = mensagem.operacao
-        print(resposta_operacao)
         return response_enviar_put_lider
     finally:
         leader_socket.close()
@@ -172,11 +171,14 @@ def replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_i
         ("127.0.0.1", 10099)  # Endereço do servidor 3
     ]
 
+    # Retirando o servidor lider da lista, pois sera replicado somente aos nao lideres
     servers.remove((leader_ip, leader_port))
     mensagem = Mensagem("REPLICATION", key, value, timestamp)
 
     replication_threads = []
+    # for vai rodar 2x, pois a lista tem 2 servidores
     for server_ip_rep, server_port_rep in servers:
+        # somente replica para os servidores nao lideres
         if server_ip_rep != leader_ip or server_port_rep != leader_port:
             replication_thread = threading.Thread(target=replicate_to_server,
                                                   args=(server_ip_rep, server_port_rep, mensagem, client_ip, client_port))
@@ -196,9 +198,7 @@ def handle_client(client_socket, address, key_value_store, leader_ip, leader_por
             break
 
         mensagem = pickle.loads(data)
-
         processarMensagem(client_socket, address, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port)
-    # print(f"Connection closed by {address[0]}:{address[1]}")
     client_socket.close()
 
 def iniciarServidor(ip, port, leader_ip, leader_port):
@@ -214,7 +214,7 @@ def iniciarServidor(ip, port, leader_ip, leader_port):
         client_port = address[1]
         # Iniciar uma nova thread para tratar a conexão do cliente
         client_thread = threading.Thread(target=handle_client,
-                                         args=(client_socket, address, key_value_store, lider_ip, lider_port, client_ip, client_port))
+                                         args=(client_socket, address, key_value_store, leader_ip, leader_port, client_ip, client_port))
         client_thread.start()
 
 
