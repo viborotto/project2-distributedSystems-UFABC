@@ -158,8 +158,6 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem, client_ip, cli
         mensagem = pickle.loads(response_rep)
         resposta_operacao = mensagem.operacao # OPERACAO REPLICATION_OK
         print(f"{resposta_operacao} from {server_ip_rep}:{server_port_rep}")
-        # if mensagem.operacao == 'REPLICATION_OK':
-            # todo: ts tem que ser do servidor, conferir se ta certo
             
     finally:
         replication_socket.close()
