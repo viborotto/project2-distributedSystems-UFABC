@@ -86,18 +86,6 @@ def processarMensagem(client_socket, address, mensagem, key_value_store, leader_
                 # Somente depois do replication enviar PUT_OK para o cliente
                 mensagem_put = Mensagem("PUT_OK", key, value, timestamp)
                 response = pickle.dumps(mensagem_put)
-        if mensagem.operacao == 'TRY':
-            key = mensagem.message_key
-            value = mensagem.message_value
-            timestampS = 1
-            timestampCliente = mensagem.message_timestamp
-            # devolver o value que possui o timestampS o qual timestampS >= timestampX
-            # exemplo se receber um Tx = 2 e tiver o Ts=3 => value = valueS timestampS
-            # Nesse caso significa que a chave em S estaria desatualizada:
-            if timestampS < timestampCliente:
-                mensagem_get = Mensagem("TRY_OTHER_SERVER_OR_LATER", key, value, timestampCliente)
-                response = pickle.dumps(mensagem_get)
-                print(f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
 
         elif mensagem.operacao == 'GET':
             key = mensagem.message_key
@@ -157,6 +145,7 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem, client_ip, cli
         response_rep = replication_socket.recv(1024) # recebe Mensagens dos servidores
         mensagem = pickle.loads(response_rep)
         resposta_operacao = mensagem.operacao # OPERACAO REPLICATION_OK
+        #todo: retirar esse print
         print(f"{resposta_operacao} from {server_ip_rep}:{server_port_rep}")
             
     finally:

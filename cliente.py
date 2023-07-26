@@ -118,26 +118,18 @@ lider_port = ''
 key_value_store_cliente = HashTableCliente()
 # Executar requisições GET e PUT
 while True:
-    op_kv = input("Defina a operacao e o par key-value(e.g INIT | GET key | PUT key=value | TRY GET key | EXIT): ")
+    op_kv = input("Defina a operacao e o par key-value(e.g INIT | GET key | PUT key=value | GET TRY | EXIT): ")
     if op_kv == 'INIT':
         defineServidores()
         lider_ip = server_ips[0]
         lider_port = server_ports[0]
     if op_kv.lower() == 'exit':
         break
-    ## SIMULAR TRY_ANOTHER_SERVER, TimestampCliente > TimestampServidor
-    elif op_kv.startswith('TRY'):
-        # Enviar a mensagem com o timestamp maior que o do Servidor
-        operacao, _, key = op_kv.partition(' ')
-        # escolhe aleatoriamente um dos 3 servidores
-        id_servidor_escolhido = random.randint(0, 2)
-        # forcando um timestamp maior para simular
-        mensagem = Mensagem("TRY", key, "", 1000)
-        requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem,
-                           key_value_store_cliente)
+
     elif op_kv.startswith('GET'):
         key = op_kv[4:]  # Extrair a parte do comando após "GET " ou seja a key
         timestamp_get = 0
+        ## SIMULAR TRY_ANOTHER_SERVER, TimestampCliente > TimestampServidor
         if key == "TRY":
             # para simular o TRY_ANOTHER_SERVER
             timestamp_get = 1000
