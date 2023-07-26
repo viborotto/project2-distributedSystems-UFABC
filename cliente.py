@@ -36,6 +36,7 @@ def defineServidores():
         server_port = input("Defina a porta do Servidor " + str(i+1) + " (10097, 10098, 10099): ")
         server_ips.append(server_ip)
         server_ports.append(int(server_port))
+    print("\n")
 
 # estabelecer a conexao com um servidor
 def conectarServidor(server_ip, server_port):
@@ -99,9 +100,7 @@ def processarResposta(resposta_servidor, server_ip, server_port, key_value_store
             key_value_store_cliente.update(key_servidor, value_servidor, timestamp_cliente)
     elif resposta_operacao == 'NULL':
         # Definido que timestamp 0, não existe
-        print(
-            f"GET key: {resposta_servidor.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, "
-            f"meu timestamp {0} e do servidor {timestamp_servidor}")
+        print(f"NULL: GET key: {resposta_servidor.message_key}")
     elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
         # Aqui a chave já seria conhecida pelo cliente, mas não tem no servidor um valor atualizado
         # portanto colocaria no cliente com o valor já conhecido
