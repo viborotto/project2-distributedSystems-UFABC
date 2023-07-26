@@ -35,6 +35,7 @@ class HashTableKV:
         else:
             raise KeyError("Key does not exist in KeyValueStore")
 
+# processar o PUT tanto no caso que existe(atualizando a chave) como no que não existe inserindo a chave
 def handlePut(mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port):
     key = mensagem.message_key
     value = mensagem.message_value
@@ -56,6 +57,7 @@ def handlePut(mensagem, key_value_store, leader_ip, leader_port, client_ip, clie
         response = pickle.dumps(mensagem_put)
     return response
 
+# processar o GET tanto no caso que não existe inserindo a chave, NULL e TRY_ANOTHER_SERVER_OR_LATER
 def handleGet(mensagem, key_value_store, client_ip, client_port):
     key = mensagem.message_key
     value = mensagem.message_value
@@ -70,8 +72,7 @@ def handleGet(mensagem, key_value_store, client_ip, client_port):
             f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
     # 2. Caso exista
     else:
-        # devolver o value que possui o timestampS o qual timestampS >= timestampX
-        # exemplo se receber um Tx = 2 e tiver o Ts=3 => value = valueS timestampS
+        # devolver o value que possui o timestampS o qual timestampS >= timestampX. exemplo se receber um Tx = 2 e tiver o Ts=3 => value = valueS timestampS
         if timestampCliente == None:
             timestampCliente = 0
         if timestampS >= timestampCliente:
@@ -89,6 +90,7 @@ def handleGet(mensagem, key_value_store, client_ip, client_port):
                 f"Cliente {client_ip}:{client_port} GET key:{key} ts:{timestampCliente}. Meu ts é {timestampS}, portanto devolvendo {mensagem_get.operacao}")
     return response
 
+# processa a replicacao para os demais servidores tanto no caso que existe(atualizando a chave) como no que nao existe inserindo a chave
 def handleReplication(mensagem, key_value_store):
     key = mensagem.message_key
     value = mensagem.message_value
@@ -110,6 +112,7 @@ def handleReplication(mensagem, key_value_store):
         response = pickle.dumps(mensagem_put)
     return response
 
+# de acordo com a operação da mensagem recebida realiza os respectivos processamento como REPLICATION, PUT, e GET
 def processarMensagem(client_socket, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port):
 
     # No caso de REPLICACAO do lider para os demais servidores
@@ -129,6 +132,7 @@ def processarMensagem(client_socket, mensagem, key_value_store, leader_ip, leade
     # PRA CADA OPERACAO ENVIA PARA O CLIENTE O RESPONSE
     client_socket.sendall(response)
 
+# Encaminhar PUT para o servidor lider
 def enviar_put_lider(leader_ip, leader_port, mensagem):
     # cria novo socket pra conexao com o lider
     leader_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -144,6 +148,7 @@ def enviar_put_lider(leader_ip, leader_port, mensagem):
     finally:
         leader_socket.close()
 
+# Replica para um servidor
 def replicate_to_server(server_ip_rep, server_port_rep, mensagem, client_ip, client_port):
     replication_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -154,12 +159,11 @@ def replicate_to_server(server_ip_rep, server_port_rep, mensagem, client_ip, cli
         response_rep = replication_socket.recv(1024) # recebe Mensagens dos servidores
         mensagem = pickle.loads(response_rep)
         resposta_operacao = mensagem.operacao # OPERACAO REPLICATION_OK
-
         # print(f"{resposta_operacao} from {server_ip_rep}:{server_port_rep}")
-            
     finally:
         replication_socket.close()
 
+# Replicar para os demais servidores nao lideres
 def replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_ip, client_port):
     servers = [
         ("127.0.0.1", 10097),  # Endereço do servidor 1
@@ -186,6 +190,7 @@ def replicate_to_servers(key, value, timestamp, leader_ip, leader_port, client_i
 
     print(f"Enviando PUT_OK ao Cliente {client_ip}:{client_port} da key:{mensagem.message_key} ts:{mensagem.message_timestamp} \n")
 
+# recebe a Mensagem do cliente e manda para o processamento
 def handle_client(client_socket, key_value_store, leader_ip, leader_port, client_ip, client_port):
     while True:
         data = client_socket.recv(1024)
@@ -196,12 +201,14 @@ def handle_client(client_socket, key_value_store, leader_ip, leader_port, client
         processarMensagem(client_socket, mensagem, key_value_store, leader_ip, leader_port, client_ip, client_port)
     client_socket.close()
 
+# Para iniciar o servidor, aceitando conexoes de multiplos clientes usando thread
 def iniciarServidor(ip, port, leader_ip, leader_port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((ip, port))
     server_socket.listen(5)
 
     key_value_store = HashTableKV()
+    # chave TRY somente para simular o cenario TRY_OTHER_SERVER_OR_LATER
     key_value_store.put("TRY", "", 0)
     while True:
         client_socket, address = server_socket.accept()

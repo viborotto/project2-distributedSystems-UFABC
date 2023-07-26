@@ -1,6 +1,7 @@
 import socket, random, pickle
 from mensagem import Mensagem
 
+# tabela de hash local para armazenar os pares chave-valor e os timestamps associados.
 class HashTableCliente:
     def __init__(self):
         self.store = dict()
@@ -115,6 +116,7 @@ def processarResposta(resposta_servidor, server_ip, server_port, key_value_store
             f"PUT_OK key: {resposta_servidor.message_key} value {resposta_servidor.message_value} "
             f"timestamp {timestamp_servidor} realizada no servidor {server_ip}:{server_port}")
 
+# conectar com o servidor, enviar a mensagem e processar resposta
 def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
     client_socket = conectarServidor(server_ip, server_port)
 
