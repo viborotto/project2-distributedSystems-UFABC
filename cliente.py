@@ -29,7 +29,15 @@ class HashTableCliente:
         else:
             raise KeyError("Key does not exist in KeyValueStore")
 
+# Define o ip e porta dos 3 servidores, e coloca em uma lista
 def defineServidores():
+    for i in range(3):
+        server_ip = input("Defina o IP do Servidor {i+1}:(default 127.0.0.1) ") or "127.0.0.1"
+        server_port = input("Defina a porta do Servidor {i+1}:(10097, 10098, 10099) ")
+        server_ips.append(server_ip)
+        server_ports.append(int(server_port))
+
+def defineServidor():
     # for i in range(3):
         # server_ip = input("Defina o IP do Servidor {i+1}:(default 127.0.0.1) ") or "127.0.0.1"
         # server_port = input("Defina a porta do Servidor {i+1}:(10097, 10098, 10099) ")
@@ -49,16 +57,22 @@ def defineServidores():
         # server_ports.append(int(server_port))
 
 
-# estabelecer a conexao com um servidor, enviar a requisicao e receber a resposta
+# estabelecer a conexao com um servidor
+# enviar a requisicao e receber a resposta
 def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
     # TCP
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client_socket.connect((str(server_ip), int(server_port)))
         serialized_request = pickle.dumps(mensagem)
-        client_socket.sendall(serialized_request) # Envia mensagem com a operacao desejada para o S
-        resposta_servidor_serializada = client_socket.recv(1024) # recebe todas as operacoes
+
+        # Envia mensagem com a operacao desejada para o S
+        client_socket.sendall(serialized_request)
+        # Recebe todas as mensagem do Servidor
+        resposta_servidor_serializada = client_socket.recv(1024)
         mensagem_servidor = pickle.loads(resposta_servidor_serializada)
+
+        # Informacoes vindas do servidor por meio da Mensagem mecebida
         resposta_operacao = mensagem_servidor.operacao
         key_servidor = mensagem_servidor.message_key
         value_servidor = mensagem_servidor.message_value
@@ -67,7 +81,6 @@ def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente
             # Condicoes de resposta do
             if resposta_operacao == 'GET_OK':
                 # caso ja exista na tabela atualizar value e ts
-                key_value_store_cliente.put("CHAVE", "VALOR", 3)
                 if key_servidor not in key_value_store_cliente.store:
                     print("NAO Tem a chave na TABELA")
                     key_value_store_cliente.put(mensagem.message_key, value_servidor, 0)
@@ -111,18 +124,14 @@ def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente
 # Capturar IPs e portas dos servidores do teclado
 server_ips = []
 server_ports = []
-# Inicializando variaveis lider
-lider_ip = ''
-lider_port = ''
 # Inicializando estrutura para armazenar informacoes no Cliente
 key_value_store_cliente = HashTableCliente()
-# Executar requisições GET e PUT
+
+# Executar operacoes
 while True:
     op_kv = input("Defina a operacao e o par key-value(e.g INIT | GET key | PUT key=value | GET TRY | EXIT): ")
     if op_kv == 'INIT':
         defineServidores()
-        lider_ip = server_ips[0]
-        lider_port = server_ports[0]
     if op_kv.lower() == 'exit':
         break
 
@@ -147,7 +156,6 @@ while True:
         # caso o put seja de uma chave que ja existe pegamos as informacoes mais recentes no cliente
         ## e enviamos para o servidor
         if key_value_store_cliente.search(key):
-            #todo: precisa ter esse + 1? nao deveria enviar o timestamp que tem na tabela do cliente?
             # timestamp = key_value_store_cliente.getTimestampCliente(key) + 1
             timestamp = key_value_store_cliente.getTimestampCliente(key)
             key_value_store_cliente.update(key, value, timestamp)
