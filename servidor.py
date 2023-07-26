@@ -207,7 +207,7 @@ def iniciarServidor(ip, port, leader_ip, leader_port):
     server_socket.listen(5)
 
     key_value_store = HashTableKV()
-
+    key_value_store.put("TRY", "", 0)
     while True:
         client_socket, address = server_socket.accept()
         client_ip = address[0]

@@ -137,9 +137,14 @@ while True:
                            key_value_store_cliente)
     elif op_kv.startswith('GET'):
         key = op_kv[4:]  # Extrair a parte do comando após "GET " ou seja a key
+        timestamp_get = 0
+        if key == "TRY":
+            # para simular o TRY_ANOTHER_SERVER
+            timestamp_get = 1000
+            key_value_store_cliente.put(key, "", timestamp_get)
         # escolhe aleatoriamente um dos 3 servidores
         id_servidor_escolhido = random.randint(0, 2)
-        mensagem = Mensagem("GET", key, "", 0)
+        mensagem = Mensagem("GET", key, "", timestamp_get)
         requisitarServidor(server_ips[id_servidor_escolhido], server_ports[id_servidor_escolhido], mensagem, key_value_store_cliente)
     elif op_kv.startswith('PUT'):
         timestamp = 0
