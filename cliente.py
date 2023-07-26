@@ -48,7 +48,7 @@ def conectarServidor(server_ip, server_port):
         print("Erro conectando com servidor:", str(e))
         return None
 
-# enviar a Mensagem para o Servidor
+# enviar a Mensagem serializada para o Servidor
 def enviarMensagem(client_socket, mensagem):
     try:
         serialized_request = pickle.dumps(mensagem)
@@ -57,7 +57,7 @@ def enviarMensagem(client_socket, mensagem):
     except Exception as e:
         print("Erro ao enviar a mensagem:", str(e))
 
-# receber resposta do Servidor
+# receber resposta do Servidor e desserializar
 def receberResposta(client_socket):
     try:
         resposta_servidor_serializada = client_socket.recv(1024)
@@ -73,7 +73,7 @@ def fecharConexao(client_socket):
     except Exception as e:
         print("Erro ao fechar conexao:", str(e))
 
-
+# processar resposta do servidor para os cenarios de GET_OK, NULL, TRY_OTHER_SERVER_OR_LATER, PUT_OK
 def processarResposta(resposta_servidor, server_ip, server_port, key_value_store_cliente):
     resposta_operacao = resposta_servidor.operacao
     key_servidor = resposta_servidor.message_key
@@ -100,7 +100,8 @@ def processarResposta(resposta_servidor, server_ip, server_port, key_value_store
     elif resposta_operacao == 'NULL':
         # Definido que timestamp 0, não existe
         print(
-            f"GET key: {resposta_servidor.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, meu timestamp {0} e do servidor {timestamp_servidor}")
+            f"GET key: {resposta_servidor.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, "
+            f"meu timestamp {0} e do servidor {timestamp_servidor}")
     elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
         # Aqui a chave já seria conhecida pelo cliente, mas não tem no servidor um valor atualizado
         # portanto colocaria no cliente com o valor já conhecido
@@ -112,7 +113,8 @@ def processarResposta(resposta_servidor, server_ip, server_port, key_value_store
         print('TRY_OTHER_SERVER_OR_LATER')
     elif resposta_operacao == 'PUT_OK':
         print(
-            f"PUT_OK key: {resposta_servidor.message_key} value {resposta_servidor.message_value} timestamp {timestamp_servidor} realizada no servidor {server_ip}:{server_port}")
+            f"PUT_OK key: {resposta_servidor.message_key} value {resposta_servidor.message_value} "
+            f"timestamp {timestamp_servidor} realizada no servidor {server_ip}:{server_port}")
 
 def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
     client_socket = conectarServidor(server_ip, server_port)
