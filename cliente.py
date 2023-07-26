@@ -32,93 +32,97 @@ class HashTableCliente:
 # Define o ip e porta dos 3 servidores, e coloca em uma lista
 def defineServidores():
     for i in range(3):
-        server_ip = input("Defina o IP do Servidor {i+1}:(default 127.0.0.1) ") or "127.0.0.1"
-        server_port = input("Defina a porta do Servidor {i+1}:(10097, 10098, 10099) ")
+        server_ip = input("Defina o IP do Servidor " + str(i+1) + " (default 127.0.0.1): ") or "127.0.0.1"
+        server_port = input("Defina a porta do Servidor " + str(i+1) + " (10097, 10098, 10099): ")
         server_ips.append(server_ip)
         server_ports.append(int(server_port))
 
-def defineServidor():
-    # for i in range(3):
-        # server_ip = input("Defina o IP do Servidor {i+1}:(default 127.0.0.1) ") or "127.0.0.1"
-        # server_port = input("Defina a porta do Servidor {i+1}:(10097, 10098, 10099) ")
-        server1_ip = '127.0.0.1'
-        server1_port = 10097
-        server2_ip = '127.0.0.1'
-        server2_port = 10098
-        server3_ip = '127.0.0.1'
-        server3_port = 10099
-        server_ips.append(server1_ip)
-        server_ports.append(int(server1_port))
-        server_ips.append(server2_ip)
-        server_ports.append(int(server2_port))
-        server_ips.append(server3_ip)
-        server_ports.append(int(server3_port))
-        # server_ips.append(server_ip)
-        # server_ports.append(int(server_port))
-
-
 # estabelecer a conexao com um servidor
-# enviar a requisicao e receber a resposta
-def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
+def conectarServidor(server_ip, server_port):
     # TCP
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client_socket.connect((str(server_ip), int(server_port)))
-        serialized_request = pickle.dumps(mensagem)
+        return client_socket
+    except Exception as e:
+        print("Erro conectando com servidor:", str(e))
+        return None
 
+# enviar a Mensagem para o Servidor
+def enviarMensagem(client_socket, mensagem):
+    try:
+        serialized_request = pickle.dumps(mensagem)
         # Envia mensagem com a operacao desejada para o S
         client_socket.sendall(serialized_request)
-        # Recebe todas as mensagem do Servidor
-        resposta_servidor_serializada = client_socket.recv(1024)
-        mensagem_servidor = pickle.loads(resposta_servidor_serializada)
-
-        # Informacoes vindas do servidor por meio da Mensagem mecebida
-        resposta_operacao = mensagem_servidor.operacao
-        key_servidor = mensagem_servidor.message_key
-        value_servidor = mensagem_servidor.message_value
-        timestamp_servidor = mensagem_servidor.message_timestamp
-        if len(resposta_servidor_serializada) > 0:
-            # Condicoes de resposta do
-            if resposta_operacao == 'GET_OK':
-                # caso ja exista na tabela atualizar value e ts
-                if key_servidor not in key_value_store_cliente.store:
-                    print("NAO Tem a chave na TABELA")
-                    key_value_store_cliente.put(mensagem.message_key, value_servidor, 0)
-                    timestamp_cliente = key_value_store_cliente.getTimestampCliente(key_servidor)
-                    print(
-                        f"GET key: {key_servidor} value: {value_servidor} obtido do servidor {server_ip}:{server_port}, "
-                        f"meu timestamp {timestamp_cliente} e do servidor {timestamp_servidor}")
-                    timestamp_cliente = timestamp_servidor
-                    key_value_store_cliente.update(key_servidor, value_servidor, timestamp_cliente)
-
-                elif key_servidor in key_value_store_cliente.store:
-                    print("Tem a chave na TABELA")
-                    timestamp_cliente = key_value_store_cliente.getTimestampCliente(key_servidor)
-                    print(
-                        f"GET key: {key_servidor} value: {value_servidor} obtido do servidor {server_ip}:{server_port}, "
-                        f"meu timestamp {timestamp_cliente} e do servidor {timestamp_servidor}")
-                    timestamp_cliente = timestamp_servidor
-                    key_value_store_cliente.update(key_servidor, value_servidor, timestamp_cliente)
-            elif resposta_operacao == 'NULL':
-                # Definido que timestamp 0, nao existe
-                print(f"GET key: {mensagem.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, meu timestamp {0} e do servidor {timestamp_servidor}")
-            elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
-                ## Aqui a chave ja seria conhecida pelo cliente mas nao tem no servidor um valor atualizado
-                # portanto colocaria no cliente com o valor ja conhecido
-                # caso ja exista na tabela atualizar value e ts
-                if key_value_store_cliente.search(key_servidor):
-                    key_value_store_cliente.update(key_servidor, value_servidor, timestamp_servidor)
-                elif not key_value_store_cliente.search(key_servidor):
-                    key_value_store_cliente.put(key_servidor, value_servidor, timestamp_servidor)
-                print('TRY_OTHER_SERVER_OR_LATER')
-            elif resposta_operacao == 'PUT_OK':
-                print(f"PUT_OK key: {mensagem.message_key} value {mensagem.message_value} timestamp {timestamp_servidor} realizada no servidor {server_ip}:{server_port}")
-        else:
-            print("Empty response received from server")
     except Exception as e:
-        print("Error communicating with server:", str(e))
-    finally:
+        print("Erro ao enviar a mensagem:", str(e))
+
+# receber resposta do Servidor
+def receberResposta(client_socket):
+    try:
+        resposta_servidor_serializada = client_socket.recv(1024)
+        return pickle.loads(resposta_servidor_serializada)
+    except Exception as e:
+        print("Erro ao receber resposta do Servidor:", str(e))
+        return None
+
+# fechar conexao do socket
+def fecharConexao(client_socket):
+    try:
         client_socket.close()
+    except Exception as e:
+        print("Erro ao fechar conexao:", str(e))
+
+
+def processarResposta(resposta_servidor, server_ip, server_port, key_value_store_cliente):
+    resposta_operacao = resposta_servidor.operacao
+    key_servidor = resposta_servidor.message_key
+    value_servidor = resposta_servidor.message_value
+    timestamp_servidor = resposta_servidor.message_timestamp
+
+    if resposta_operacao == 'GET_OK':
+        # caso já exista na tabela atualizar value e ts
+        if key_servidor not in key_value_store_cliente.store:
+            key_value_store_cliente.put(resposta_servidor.message_key, value_servidor, 0)
+            timestamp_cliente = key_value_store_cliente.getTimestampCliente(key_servidor)
+            print(
+                f"GET key: {key_servidor} value: {value_servidor} obtido do servidor {server_ip}:{server_port}, "
+                f"meu timestamp {timestamp_cliente} e do servidor {timestamp_servidor}")
+            timestamp_cliente = timestamp_servidor
+            key_value_store_cliente.update(key_servidor, value_servidor, timestamp_cliente)
+        elif key_servidor in key_value_store_cliente.store:
+            timestamp_cliente = key_value_store_cliente.getTimestampCliente(key_servidor)
+            print(
+                f"GET key: {key_servidor} value: {value_servidor} obtido do servidor {server_ip}:{server_port}, "
+                f"meu timestamp {timestamp_cliente} e do servidor {timestamp_servidor}")
+            timestamp_cliente = timestamp_servidor
+            key_value_store_cliente.update(key_servidor, value_servidor, timestamp_cliente)
+    elif resposta_operacao == 'NULL':
+        # Definido que timestamp 0, não existe
+        print(
+            f"GET key: {resposta_servidor.message_key} value: NULL obtido do servidor {server_ip}:{server_port}, meu timestamp {0} e do servidor {timestamp_servidor}")
+    elif resposta_operacao == 'TRY_OTHER_SERVER_OR_LATER':
+        # Aqui a chave já seria conhecida pelo cliente, mas não tem no servidor um valor atualizado
+        # portanto colocaria no cliente com o valor já conhecido
+        # caso já exista na tabela atualizar value e ts
+        if key_value_store_cliente.search(key_servidor):
+            key_value_store_cliente.update(key_servidor, value_servidor, timestamp_servidor)
+        elif not key_value_store_cliente.search(key_servidor):
+            key_value_store_cliente.put(key_servidor, value_servidor, timestamp_servidor)
+        print('TRY_OTHER_SERVER_OR_LATER')
+    elif resposta_operacao == 'PUT_OK':
+        print(
+            f"PUT_OK key: {resposta_servidor.message_key} value {resposta_servidor.message_value} timestamp {timestamp_servidor} realizada no servidor {server_ip}:{server_port}")
+
+def requisitarServidor(server_ip, server_port, mensagem, key_value_store_cliente):
+    client_socket = conectarServidor(server_ip, server_port)
+
+    if client_socket is not None:
+        enviarMensagem(client_socket, mensagem)
+        resposta_servidor = receberResposta(client_socket)
+        if resposta_servidor is not None:
+            processarResposta(resposta_servidor, server_ip, server_port, key_value_store_cliente)
+        fecharConexao(client_socket)
 
 
 # Capturar IPs e portas dos servidores do teclado
